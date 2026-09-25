@@ -6,8 +6,8 @@ import { loginWithGoogleBackend } from '@/lib/api';
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+      clientId: (process.env.GOOGLE_CLIENT_ID || 'dummy-client-id').trim(),
+      clientSecret: (process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret').trim(),
     }),
     CredentialsProvider({
       id: 'demo-login',

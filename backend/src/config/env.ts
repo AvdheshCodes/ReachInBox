@@ -11,7 +11,7 @@ export const env = {
   WORKER_CONCURRENCY: parseInt(process.env.WORKER_CONCURRENCY || '5', 10),
   MIN_DELAY_BETWEEN_EMAILS_MS: parseInt(process.env.MIN_DELAY_BETWEEN_EMAILS_MS || '2000', 10),
   MAX_EMAILS_PER_HOUR: parseInt(process.env.MAX_EMAILS_PER_HOUR || '200', 10),
-  JWT_SECRET: process.env.JWT_SECRET || 'reachinbox_jwt_secret_key_987654321',
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  JWT_SECRET: (process.env.JWT_SECRET || 'reachinbox_jwt_secret_key_987654321').trim(),
+  GOOGLE_CLIENT_ID: (process.env.GOOGLE_CLIENT_ID || '').trim(),
+  FRONTEND_URL: (process.env.FRONTEND_URL || 'http://localhost:3000').trim(),
 };
