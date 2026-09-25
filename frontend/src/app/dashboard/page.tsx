@@ -42,7 +42,8 @@ export default function DashboardPage() {
       setBackendError(null);
     } catch (err: any) {
       console.warn('Backend reachability issue:', err.message);
-      setBackendError('Unable to connect to Express backend at http://localhost:5000. Ensure Postgres & Redis Docker containers are running.');
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') ? 'https://reachinbox-backend-k55n.onrender.com' : 'http://localhost:5000');
+      setBackendError(`Unable to connect to Express backend at ${backendUrl}. The backend may be starting up — please retry in a moment.`);
     } finally {
       setLoadingScheduled(false);
     }
