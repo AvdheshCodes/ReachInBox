@@ -1,7 +1,20 @@
 import axios from 'axios';
 import { SchedulePayload, EmailJob, DashboardStats } from '../types';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+function getBackendUrl(): string {
+  // 1. Prefer explicit env var (baked in at build time by Next.js)
+  if (process.env.NEXT_PUBLIC_BACKEND_URL && process.env.NEXT_PUBLIC_BACKEND_URL !== '') {
+    return process.env.NEXT_PUBLIC_BACKEND_URL.trim();
+  }
+  // 2. Auto-detect: if running on Vercel (not localhost), use the deployed Render backend
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+    return 'https://reachinbox-backend-k55n.onrender.com';
+  }
+  // 3. Fallback for local development
+  return 'http://localhost:5000';
+}
+
+const BACKEND_URL = getBackendUrl();
 
 export const api = axios.create({
   baseURL: BACKEND_URL,
