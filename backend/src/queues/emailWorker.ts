@@ -158,7 +158,7 @@ async function processSingleEmailJob(jobId: string, customData?: Partial<EmailJo
   }
 }
 
-// Database Scheduler Ticker (Runs every 3 seconds)
+// Database Scheduler Ticker (Runs every 1 second for fast dispatch)
 let isTickerRunning = false;
 function startDatabaseSchedulerTicker() {
   setInterval(async () => {
@@ -173,7 +173,7 @@ function startDatabaseSchedulerTicker() {
           status: { in: ['SCHEDULED', 'RESCHEDULED'] },
           scheduledAt: { lte: now },
         },
-        take: env.WORKER_CONCURRENCY || 5,
+        take: 20,
         orderBy: { scheduledAt: 'asc' },
       });
 
@@ -185,13 +185,15 @@ function startDatabaseSchedulerTicker() {
         });
 
         if (updated.count > 0) {
-          await processSingleEmailJob(job.id);
+          processSingleEmailJob(job.id).catch((err) => {
+            console.error(`[Worker] Job ${job.id} execution error:`, err?.message || err);
+          });
         }
       }
     } catch (err: any) {
-      // Ignore background loop error if DB is busy
+      console.warn('[Ticker] Loop note:', err?.message || err);
     } finally {
       isTickerRunning = false;
     }
-  }, 3000);
+  }, 1000);
 }
