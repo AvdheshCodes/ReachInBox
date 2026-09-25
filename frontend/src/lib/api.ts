@@ -6,11 +6,15 @@ function getBackendUrl(): string {
   if (process.env.NEXT_PUBLIC_BACKEND_URL && process.env.NEXT_PUBLIC_BACKEND_URL !== '') {
     return process.env.NEXT_PUBLIC_BACKEND_URL.trim();
   }
-  // 2. Auto-detect: if running on Vercel (not localhost), use the deployed Render backend
+  // 2. Server-side detection: VERCEL env var is always set on Vercel serverless functions
+  if (process.env.VERCEL === '1') {
+    return 'https://reachinbox-backend-k55n.onrender.com';
+  }
+  // 3. Client-side detection: check if running on a non-localhost domain
   if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
     return 'https://reachinbox-backend-k55n.onrender.com';
   }
-  // 3. Fallback for local development
+  // 4. Fallback for local development
   return 'http://localhost:5000';
 }
 
