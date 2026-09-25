@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar';
 import ScheduledTable from '@/components/ScheduledTable';
 import SentTable from '@/components/SentTable';
 import ScheduleModal from '@/components/ScheduleModal';
-import { fetchScheduledEmails, fetchSentEmails, fetchDashboardStats, setAuthToken } from '@/lib/api';
+import { fetchScheduledEmails, fetchSentEmails, fetchDashboardStats, setAuthToken, ensureAuthToken } from '@/lib/api';
 import { EmailJob, DashboardStats } from '@/types';
 
 export default function DashboardPage() {
@@ -30,7 +30,11 @@ export default function DashboardPage() {
       router.push('/');
     } else if (session) {
       const token = (session as any).backendToken;
-      setAuthToken(token || null);
+      if (token) {
+        setAuthToken(token);
+      } else if (session.user) {
+        ensureAuthToken(session.user);
+      }
     }
   }, [session, status, router]);
 

@@ -31,11 +31,16 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user) {
         token.user = user;
+      }
+      if (!token.backendToken && (user || token.email)) {
         try {
-          const backendRes = await loginWithGoogleBackend(account?.id_token, user);
-          token.backendToken = backendRes.token;
+          const userInfo = user || { email: token.email, name: token.name, image: (token as any).picture };
+          const backendRes = await loginWithGoogleBackend(account?.id_token, userInfo);
+          if (backendRes?.token) {
+            token.backendToken = backendRes.token;
+          }
         } catch (err) {
-          console.error('Failed syncing Google Auth with backend:', err);
+          console.error('Failed syncing Auth with backend:', err);
         }
       }
       return token;

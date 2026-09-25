@@ -32,13 +32,41 @@ export const api = axios.create({
 export function setAuthToken(token: string | null) {
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('reachinbox_backend_token', token);
+    }
   } else {
     delete api.defaults.headers.common['Authorization'];
   }
 }
 
+export async function ensureAuthToken(user?: any): Promise<string | null> {
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem('reachinbox_backend_token');
+    if (cached) {
+      setAuthToken(cached);
+      return cached;
+    }
+  }
+  if (user && user.email) {
+    try {
+      const res = await loginWithGoogleBackend(undefined, user);
+      if (res?.token) {
+        setAuthToken(res.token);
+        return res.token;
+      }
+    } catch (err) {
+      console.error('[API] Failed to auto-generate backend token:', err);
+    }
+  }
+  return null;
+}
+
 export async function loginWithGoogleBackend(credential?: string, userInfo?: any) {
   const response = await api.post('/api/auth/google', { credential, userInfo });
+  if (response.data?.token) {
+    setAuthToken(response.data.token);
+  }
   return response.data;
 }
 
