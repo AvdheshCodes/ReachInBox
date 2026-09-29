@@ -190,10 +190,90 @@ export async function getSentEmails(req: AuthRequest, res: Response) {
       },
     });
 
-    return res.json({ sent: jobs });
+    const protocol = req.protocol || 'http';
+    const host = req.get('host') || `localhost:${process.env.PORT || 5000}`;
+    const hostUrl = process.env.RENDER_EXTERNAL_URL || `${protocol}://${host}`;
+
+    const formattedJobs = jobs.map((job) => {
+      let previewUrl = job.etherealUrl;
+      if (!previewUrl || previewUrl.includes('ethereal.email') || previewUrl.includes('onrender.com')) {
+        previewUrl = `${hostUrl}/api/emails/preview/${job.id}`;
+      }
+      return {
+        ...job,
+        etherealUrl: previewUrl,
+        sandboxPreviewUrl: `${hostUrl}/api/emails/preview/${job.id}`,
+      };
+    });
+
+    return res.json({ sent: formattedJobs });
   } catch (error: any) {
     console.error('[EmailController] Get Sent Error:', error);
     return res.status(500).json({ error: error.message || 'Failed to fetch sent emails' });
+  }
+}
+
+export async function previewEmail(req: any, res: Response) {
+  try {
+    const { jobId } = req.params;
+    const dbJob = await prisma.emailJob.findUnique({
+      where: { id: jobId },
+      include: { schedule: { include: { sender: true } } },
+    });
+
+    if (!dbJob) {
+      return res.status(404).send('<h1>Email Not Found</h1><p>The requested email job ID does not exist.</p>');
+    }
+
+    const escapeHtml = (str?: string) => (str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereal Mail Preview - ${escapeHtml(dbJob.subject)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #0f172a; }
+    .card { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); overflow: hidden; }
+    .header { background: #0f172a; color: #ffffff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: 0.5px; }
+    .badge { background: #10b981; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; }
+    .meta { padding: 20px 24px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 13px; line-height: 1.8; }
+    .meta-row { display: flex; margin-bottom: 4px; }
+    .meta-label { width: 100px; font-weight: 600; color: #64748b; }
+    .meta-val { flex: 1; color: #1e293b; font-weight: 500; }
+    .body-content { padding: 28px 24px; font-size: 14px; line-height: 1.7; color: #334155; white-space: pre-wrap; background: #ffffff; }
+    .footer { padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>✉️ Ethereal Sandbox Mail Preview</h1>
+      <span class="badge">${dbJob.status}</span>
+    </div>
+    <div class="meta">
+      <div class="meta-row"><span class="meta-label">Subject:</span><span class="meta-val">${escapeHtml(dbJob.subject)}</span></div>
+      <div class="meta-row"><span class="meta-label">From:</span><span class="meta-val">${escapeHtml(dbJob.schedule?.sender?.name || 'ReachInbox Outreach Manager')} &lt;${escapeHtml(dbJob.schedule?.sender?.email || 'outreach@reachinbox.ai')}&gt;</span></div>
+      <div class="meta-row"><span class="meta-label">To:</span><span class="meta-val">${escapeHtml(dbJob.recipient)}</span></div>
+      <div class="meta-row"><span class="meta-label">Dispatched:</span><span class="meta-val">${dbJob.sentAt ? new Date(dbJob.sentAt).toUTCString() : new Date(dbJob.scheduledAt).toUTCString()}</span></div>
+    </div>
+    <div class="body-content">${escapeHtml(dbJob.body)}</div>
+    <div class="footer">Dispatched via ReachInbox Email Scheduler &bull; Render Worker Engine &bull; Sandbox Ethereal Mail</div>
+  </div>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(html);
+  } catch (err: any) {
+    return res.status(500).send(`<h1>Error</h1><p>${err.message}</p>`);
   }
 }
 

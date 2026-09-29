@@ -11,10 +11,13 @@ module.exports = {
         brand: {
           50: '#f0f7ff',
           100: '#e0effe',
-          500: '#0284c7',
-          600: '#0369a1',
-          700: '#075985',
+          500: '#6366F1',
+          600: '#4F46E5',
+          700: '#4338CA',
         },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
     },
   },

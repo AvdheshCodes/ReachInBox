@@ -37,8 +37,44 @@ export function setAuthToken(token: string | null) {
     }
   } else {
     delete api.defaults.headers.common['Authorization'];
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('reachinbox_backend_token');
+    }
   }
 }
+
+// Request interceptor to automatically attach token or generate dev token
+api.interceptors.request.use(async (config) => {
+  if (!config.headers['Authorization']) {
+    let cachedToken: string | null = null;
+    if (typeof window !== 'undefined') {
+      cachedToken = localStorage.getItem('reachinbox_backend_token');
+    }
+    
+    if (cachedToken) {
+      config.headers['Authorization'] = `Bearer ${cachedToken}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${cachedToken}`;
+    } else if (config.url !== '/api/auth/google') {
+      try {
+        // Auto-authenticate as default user for seamless local development
+        const response = await axios.post(`${BACKEND_URL}/api/auth/google`, {
+          userInfo: {
+            email: 'user@reachinbox.ai',
+            name: 'Outreach Manager',
+          },
+        });
+        if (response.data?.token) {
+          const token = response.data.token;
+          config.headers['Authorization'] = `Bearer ${token}`;
+          setAuthToken(token);
+        }
+      } catch (err) {
+        console.warn('[API] Auto-auth failed:', err);
+      }
+    }
+  }
+  return config;
+}, (error) => Promise.reject(error));
 
 export async function ensureAuthToken(user?: any): Promise<string | null> {
   if (typeof window !== 'undefined') {
@@ -48,16 +84,15 @@ export async function ensureAuthToken(user?: any): Promise<string | null> {
       return cached;
     }
   }
-  if (user && user.email) {
-    try {
-      const res = await loginWithGoogleBackend(undefined, user);
-      if (res?.token) {
-        setAuthToken(res.token);
-        return res.token;
-      }
-    } catch (err) {
-      console.error('[API] Failed to auto-generate backend token:', err);
+  try {
+    const userInfo = user && user.email ? user : { email: 'user@reachinbox.ai', name: 'Outreach Manager' };
+    const res = await loginWithGoogleBackend(undefined, userInfo);
+    if (res?.token) {
+      setAuthToken(res.token);
+      return res.token;
     }
+  } catch (err) {
+    console.error('[API] Failed to auto-generate backend token:', err);
   }
   return null;
 }

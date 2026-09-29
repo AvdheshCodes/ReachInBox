@@ -3,12 +3,22 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import Navbar from '@/components/Navbar';
+import Sidebar from '@/components/Sidebar';
+import TopHeader from '@/components/TopHeader';
 import ScheduledTable from '@/components/ScheduledTable';
 import SentTable from '@/components/SentTable';
 import ScheduleModal from '@/components/ScheduleModal';
 import { fetchScheduledEmails, fetchSentEmails, fetchDashboardStats, setAuthToken, ensureAuthToken } from '@/lib/api';
 import { EmailJob, DashboardStats } from '@/types';
+import {
+  CalendarClock,
+  CheckCircle2,
+  XCircle,
+  Layers,
+  Plus,
+  AlertTriangle,
+  RefreshCw,
+} from 'lucide-react';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -90,10 +100,10 @@ export default function DashboardPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-900 border-t-transparent mx-auto mb-2"></div>
-          <p className="text-xs text-slate-600 font-medium">Loading Dashboard...</p>
+      <div className="page-loader">
+        <div className="page-loader-inner">
+          <div className="loading-spinner" style={{ margin: '0 auto 12px' }}></div>
+          <p className="loading-text">Loading Dashboard...</p>
         </div>
       </div>
     );
@@ -101,97 +111,122 @@ export default function DashboardPage() {
 
   if (!session) return null;
 
+  const statCards = [
+    {
+      label: 'Pending / Scheduled',
+      value: stats.scheduled,
+      icon: CalendarClock,
+      colorClass: 'blue',
+      cardClass: 'stat-scheduled',
+    },
+    {
+      label: 'Successfully Sent',
+      value: stats.sent,
+      icon: CheckCircle2,
+      colorClass: 'green',
+      cardClass: 'stat-sent',
+    },
+    {
+      label: 'Failed Sends',
+      value: stats.failed,
+      icon: XCircle,
+      colorClass: 'red',
+      cardClass: 'stat-failed',
+    },
+    {
+      label: 'Total Campaigns',
+      value: stats.totalSchedules,
+      icon: Layers,
+      colorClass: 'purple',
+      cardClass: 'stat-campaigns',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar />
+    <div className="app-layout">
+      {/* Sidebar */}
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} stats={stats} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {backendError && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded text-amber-900 text-xs flex justify-between items-center">
-            <div>
-              <span className="font-bold">⚠️ Infrastructure Connection Warning: </span>
-              <span>{backendError}</span>
-            </div>
-            <button
-              onClick={refreshAll}
-              className="px-3 py-1 bg-amber-200 hover:bg-amber-300 rounded font-semibold text-amber-950 ml-4"
-            >
-              Retry Connection
-            </button>
-          </div>
-        )}
+      {/* Main Content */}
+      <div className="main-content">
+        {/* Top Header */}
+        <TopHeader
+          title="Email Dashboard"
+          subtitle="Monitor and manage your email campaigns"
+          onRefresh={refreshAll}
+        />
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded border border-gray-200">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-              Pending / Scheduled
+        {/* Page Content */}
+        <div className="page-content">
+          {/* Backend Error Alert */}
+          {backendError && (
+            <div className="alert-banner warning">
+              <div className="alert-banner-text">
+                <strong>
+                  <AlertTriangle size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
+                  Infrastructure Warning:{' '}
+                </strong>
+                {backendError}
+              </div>
+              <button className="btn btn-sm btn-secondary" onClick={refreshAll}>
+                <RefreshCw size={12} />
+                Retry
+              </button>
             </div>
-            <div className="text-2xl font-bold text-slate-900 mt-1">{stats.scheduled}</div>
+          )}
+
+          {/* Stats Grid */}
+          <div className="stats-grid">
+            {statCards.map((card) => (
+              <div key={card.label} className={`stat-card ${card.cardClass}`}>
+                <div className="stat-card-header">
+                  <span className="stat-card-label">{card.label}</span>
+                  <div className={`stat-card-icon ${card.colorClass}`}>
+                    <card.icon size={18} />
+                  </div>
+                </div>
+                <div className="stat-card-value">{card.value}</div>
+              </div>
+            ))}
           </div>
-          <div className="bg-white p-4 rounded border border-gray-200">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-              Successfully Sent
+
+          {/* Action Bar */}
+          <div className="action-bar">
+            <div className="tab-group">
+              <button
+                className={`tab-btn ${activeTab === 'scheduled' ? 'active' : ''}`}
+                onClick={() => setActiveTab('scheduled')}
+              >
+                Scheduled ({stats.scheduled})
+              </button>
+              <button
+                className={`tab-btn ${activeTab === 'sent' ? 'active' : ''}`}
+                onClick={() => setActiveTab('sent')}
+              >
+                Sent ({stats.sent})
+              </button>
             </div>
-            <div className="text-2xl font-bold text-emerald-600 mt-1">{stats.sent}</div>
-          </div>
-          <div className="bg-white p-4 rounded border border-gray-200">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-              Failed Sends
+
+            <div className="action-bar-right">
+              <button className="btn btn-secondary btn-sm" onClick={refreshAll}>
+                <RefreshCw size={14} />
+                Refresh
+              </button>
+              <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+                <Plus size={16} />
+                Compose New Email
+              </button>
             </div>
-            <div className="text-2xl font-bold text-red-600 mt-1">{stats.failed}</div>
           </div>
-          <div className="bg-white p-4 rounded border border-gray-200">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-              Total Campaigns
-            </div>
-            <div className="text-2xl font-bold text-slate-800 mt-1">{stats.totalSchedules}</div>
-          </div>
+
+          {/* Data Tables */}
+          {activeTab === 'scheduled' ? (
+            <ScheduledTable jobs={scheduledJobs} loading={loadingScheduled} onRefresh={refreshAll} />
+          ) : (
+            <SentTable jobs={sentJobs} loading={loadingSent} onRefresh={refreshAll} />
+          )}
         </div>
-
-        {/* Dashboard Action Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-4 border-b border-gray-200">
-          {/* Tabs */}
-          <div className="flex space-x-1 bg-gray-200/70 p-1 rounded">
-            <button
-              onClick={() => setActiveTab('scheduled')}
-              className={`px-4 py-1.5 rounded text-xs font-semibold transition ${
-                activeTab === 'scheduled'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Scheduled Emails ({stats.scheduled})
-            </button>
-            <button
-              onClick={() => setActiveTab('sent')}
-              className={`px-4 py-1.5 rounded text-xs font-semibold transition ${
-                activeTab === 'sent'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Sent Emails ({stats.sent})
-            </button>
-          </div>
-
-          {/* Primary Action Button */}
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold shadow-sm flex items-center space-x-2"
-          >
-            <span>+</span>
-            <span>Compose New Email</span>
-          </button>
-        </div>
-
-        {/* Main Content Tables */}
-        {activeTab === 'scheduled' ? (
-          <ScheduledTable jobs={scheduledJobs} loading={loadingScheduled} onRefresh={refreshAll} />
-        ) : (
-          <SentTable jobs={sentJobs} loading={loadingSent} onRefresh={refreshAll} />
-        )}
-      </main>
+      </div>
 
       {/* Compose Schedule Modal */}
       <ScheduleModal

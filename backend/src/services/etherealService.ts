@@ -61,12 +61,11 @@ export async function sendEtherealEmail(opts: {
       previewUrl,
     };
   } catch (err: any) {
-    console.warn(`[Ethereal] SMTP dispatch note (${err.message}). Using cloud fallback dispatch...`);
+    console.warn(`[Ethereal] Cloud SMTP note (${err?.message || err}). Falling back to HTML preview service...`);
     const simulatedMsgId = `<simulated_${Date.now()}_${Math.random().toString(36).substring(7)}@reachinbox.ai>`;
-    const simulatedPreview = `https://ethereal.email/message/${opts.smtpUser || 'demo'}`;
     return {
       messageId: simulatedMsgId,
-      previewUrl: simulatedPreview,
+      previewUrl: false,
     };
   }
 }
