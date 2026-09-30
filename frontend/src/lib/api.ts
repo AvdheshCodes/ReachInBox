@@ -124,3 +124,14 @@ export async function submitScheduleEmails(payload: SchedulePayload) {
   const response = await api.post('/api/emails/schedule', payload);
   return response.data;
 }
+
+export async function deleteScheduledEmail(id: string) {
+  const response = await api.delete(`/api/emails/scheduled/${id}`);
+  return response.data;
+}
+
+export async function deleteScheduledEmailsBatch(ids: string[]) {
+  const response = await api.post('/api/emails/scheduled/delete-batch', { ids });
+  return response.data;
+}
+

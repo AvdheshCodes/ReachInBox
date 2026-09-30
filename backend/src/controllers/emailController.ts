@@ -296,3 +296,91 @@ export async function getStats(req: AuthRequest, res: Response) {
     return res.status(500).json({ error: error.message });
   }
 }
+
+export async function deleteScheduledEmail(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ error: 'Job ID is required' });
+    }
+
+    const existingJob = await prisma.emailJob.findUnique({
+      where: { id },
+    });
+
+    if (!existingJob) {
+      return res.status(404).json({ error: 'Scheduled email job not found' });
+    }
+
+    // Delete from DB
+    await prisma.emailJob.delete({
+      where: { id },
+    });
+
+    // Remove from BullMQ queue if Redis is connected
+    if (getIsRedisConnected()) {
+      try {
+        const bullJobId = `email_job_${id}`;
+        const job = await emailQueue.getJob(bullJobId);
+        if (job) {
+          await job.remove();
+          console.log(`[BullMQ] Removed job ${bullJobId} from queue.`);
+        }
+      } catch (queueErr: any) {
+        console.warn(`[BullMQ] Failed to remove job ${id} from queue:`, queueErr.message);
+      }
+    }
+
+    console.log(`[Scheduler] Successfully deleted scheduled email job ${id}`);
+
+    return res.json({
+      message: 'Scheduled email deleted successfully',
+      id,
+    });
+  } catch (error: any) {
+    console.error('[EmailController] Delete Scheduled Error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete scheduled email' });
+  }
+}
+
+export async function deleteScheduledEmailsBatch(req: AuthRequest, res: Response) {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Array of job ids is required' });
+    }
+
+    // Delete matching jobs from DB
+    const deleteResult = await prisma.emailJob.deleteMany({
+      where: {
+        id: { in: ids },
+      },
+    });
+
+    // Remove from BullMQ queue if Redis is connected
+    if (getIsRedisConnected()) {
+      for (const id of ids) {
+        try {
+          const bullJobId = `email_job_${id}`;
+          const job = await emailQueue.getJob(bullJobId);
+          if (job) {
+            await job.remove();
+          }
+        } catch (queueErr: any) {
+          // ignore error for batch removal
+        }
+      }
+    }
+
+    console.log(`[Scheduler] Successfully deleted batch of ${deleteResult.count} scheduled email jobs`);
+
+    return res.json({
+      message: `Successfully deleted ${deleteResult.count} scheduled email(s)`,
+      deletedCount: deleteResult.count,
+    });
+  } catch (error: any) {
+    console.error('[EmailController] Delete Scheduled Batch Error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete scheduled emails' });
+  }
+}
+

@@ -38,3 +38,5 @@ Thumbs.db
 .system_generated/
 scratch/
 *.mp4
+*.tsbuildinfo
+
